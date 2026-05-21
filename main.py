@@ -19,15 +19,20 @@ def download_xray():
 def generate_config():
     config = {
         "log": {
-            "loglevel": "info",           # info یا debug (برای لاگ خیلی دقیق)
-            "access": "none"              # ما خودمان لاگ دسترسی را مدیریت می‌کنیم
+            "loglevel": "info"
         },
         "inbounds": [{
             "port": VLESS_PORT,
             "listen": "0.0.0.0",
             "protocol": "vless",
             "settings": {
-                "clients": [{"id": UUID}]
+                "clients": [
+                    {
+                        "id": UUID,
+                        "flow": "",
+                        "decryption": "none"          # ← این خط اضافه شد
+                    }
+                ]
             },
             "streamSettings": {
                 "network": "ws",
@@ -69,11 +74,10 @@ def run_xray():
     download_xray()
     generate_config()
     
-    print("🚀 Xray در حال اجرا است... (ترافیک واقعی نمایش داده می‌شود)")
+    print("🚀 Xray در حال اجرا است... (ترافیک نمایش داده می‌شود)")
     print("═" * 70)
     
     try:
-        # اجرای Xray با خروجی کامل
         process = subprocess.Popen(
             ["./xray", "run", "-c", "config.json"],
             stdout=subprocess.PIPE,
@@ -82,16 +86,14 @@ def run_xray():
             bufsize=1
         )
         
-        # نمایش زنده لاگ‌ها
         for line in process.stdout:
             line = line.strip()
             if line:
-                # فیلتر و نمایش زیباتر
-                if "accepted" in line.lower() or "inbound" in line.lower():
-                    print(f"📥 [ورودی] {line}")
-                elif "outbound" in line.lower() or "dial" in line.lower():
-                    print(f"📤 [خروجی] {line}")
-                elif "failed" in line.lower() or "error" in line.lower():
+                if "accepted" in line or "inbound" in line.lower():
+                    print(f"📥 [اتصال] {line}")
+                elif "dial" in line or "outbound" in line.lower():
+                    print(f"📤 [ترافیک] {line}")
+                elif "error" in line.lower() or "failed" in line.lower():
                     print(f"❌ [خطا] {line}")
                 else:
                     print(line)
@@ -107,20 +109,17 @@ def generate_vless_link(codespace_url):
         f"?type=ws&security=none&path=/&host={codespace_url}"
         f"#{codespace_url}-Via-Codespace"
     )
-    print("\n" + "═"*80)
+    print("\n" + "═"*85)
     print("✅ لینک VLESS شما:")
     print(link)
-    print("═"*80)
-    print("این لینک را در v2rayNG / Nekobox import کنید.")
+    print("═"*85)
     return link
 
 if __name__ == "__main__":
-    # اجرای Xray در ترد جدا
     threading.Thread(target=run_xray, daemon=True).start()
     
     time.sleep(8)
     
-    # نمایش لینک
     try:
         codespace_url = os.getenv("CODESPACE_NAME") + ".app.github.dev"
         generate_vless_link(codespace_url)
@@ -129,7 +128,6 @@ if __name__ == "__main__":
         url = input("آدرس: ").strip()
         generate_vless_link(url)
     
-    # نگه داشتن برنامه
     try:
         while True:
             time.sleep(300)
