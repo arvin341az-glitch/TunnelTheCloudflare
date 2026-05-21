@@ -1,0 +1,14 @@
+{
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
+  "features": {
+    "ghcr.io/devcontainers/features/python:1": {}
+  },
+  "postCreateCommand": "pip install requests && wget -q https://github.com/XTLS/Xray-core/releases/latest/download/Xray-linux-64.zip -O xray.zip && unzip -o xray.zip && chmod +x xray && rm xray.zip",
+  "forwardPorts": [2083],
+  "portsAttributes": {
+    "2083": {
+      "label": "VLESS Port",
+      "onAutoForward": "public"
+    }
+  }
+}
