@@ -4,7 +4,6 @@ import os
 import json
 import threading
 
-# ================== تنظیمات ==================
 UUID = "4ba5ee7f-f9e3-4226-aa59-a84b569297ab"
 WORKER_HOST = "wispy-wind-f455.arvin341az.workers.dev"
 VLESS_PORT = 2083
@@ -24,8 +23,8 @@ def generate_config():
             "listen": "0.0.0.0",
             "protocol": "vless",
             "settings": {
-                "clients": [{"id": UUID, "flow": "", "decryption": "none"}],
-                "decryption": "none"   # ✅ این خط رو اضافه کن
+                "decryption": "none",   # ✅ کلیدی برای کل inbound
+                "clients": [{"id": UUID, "flow": "", "decryption": "none"}]
             },
             "streamSettings": {
                 "network": "ws",
@@ -57,10 +56,8 @@ def generate_config():
 def run_xray():
     download_xray()
     generate_config()
-    
     print("🚀 Xray در حال اجرا است... (ترافیک نمایش داده می‌شود)")
     print("═" * 70)
-    
     try:
         process = subprocess.Popen(
             ["./xray", "run", "-c", "config.json"],
@@ -69,7 +66,6 @@ def run_xray():
             text=True,
             bufsize=1
         )
-        
         for line in process.stdout:
             line = line.strip()
             if line:
@@ -81,37 +77,42 @@ def run_xray():
                     print(f"❌ [خطا] {line}")
                 else:
                     print(line)
-                    
     except KeyboardInterrupt:
         print("\n🛑 Xray متوقف شد.")
     except Exception as e:
         print(f"خطا: {e}")
 
 def generate_vless_link(codespace_url):
+    # آدرس نهایی گیت‌وی Codespace با پورت 443 (چون TLS می‌خواهد)
+    full_host = f"{VLESS_PORT}-{codespace_url}"
     link = (
-        f"vless://{UUID}@{codespace_url}:{VLESS_PORT}"
-        f"?type=ws&security=none&path=/&host={codespace_url}"
-        f"#{codespace_url}-Via-Codespace"
+        f"vless://{UUID}@{full_host}:443"
+        f"?type=ws&security=tls&sni={full_host}&fp=random&allowInsecure=1&path=%2F"
+        f"#{full_host}-Via-Codespace"
     )
     print("\n" + "═"*85)
-    print("✅ لینک VLESS شما:")
+    print("✅ لینک VLESS برای اتصال از کلاینت خودتان:")
     print(link)
     print("═"*85)
+    print("\n⚠️ نکات مهم:")
+    print(f"1. پورت {VLESS_PORT} را در تب Ports Codespace به حالت Public تغییر دهید.")
+    print("2. از لینک بالا در v2rayN، Nekoray، Hiddify یا هر کلاینت دیگری استفاده کنید.")
+    print("3. اگر خطای TLS دیدید، allowInsecure=1 را بررسی کنید.")
     return link
 
 if __name__ == "__main__":
     threading.Thread(target=run_xray, daemon=True).start()
-    
     time.sleep(8)
-    
     try:
-        codespace_url = os.getenv("CODESPACE_NAME") + ".app.github.dev"
-        generate_vless_link(codespace_url)
+        codespace_name = os.getenv("CODESPACE_NAME")
+        if codespace_name:
+            generate_vless_link(codespace_name)
+        else:
+            raise Exception
     except:
-        print("\n⚠️ آدرس Codespace را وارد کنید:")
+        print("\n⚠️ آدرس Codespace را وارد کنید (مثلاً potential-funicular-jr5prgj7q4jpf5p4w):")
         url = input("آدرس: ").strip()
         generate_vless_link(url)
-    
     try:
         while True:
             time.sleep(300)
