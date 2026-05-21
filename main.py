@@ -18,27 +18,18 @@ def download_xray():
 
 def generate_config():
     config = {
-        "log": {
-            "loglevel": "info"
-        },
+        "log": {"loglevel": "info"},
         "inbounds": [{
             "port": VLESS_PORT,
             "listen": "0.0.0.0",
             "protocol": "vless",
             "settings": {
-                "clients": [
-                    {
-                        "id": UUID,
-                        "flow": "",
-                        "decryption": "none"          # ← این خط اضافه شد
-                    }
-                ]
+                "clients": [{"id": UUID, "flow": "", "decryption": "none"}],
+                "decryption": "none"   # ✅ این خط رو اضافه کن
             },
             "streamSettings": {
                 "network": "ws",
-                "wsSettings": {
-                    "path": "/"
-                }
+                "wsSettings": {"path": "/"}
             },
             "sniffing": {"enabled": True, "destOverride": ["http", "tls"]}
         }],
@@ -54,18 +45,11 @@ def generate_config():
             "streamSettings": {
                 "network": "ws",
                 "security": "tls",
-                "tlsSettings": {
-                    "serverName": WORKER_HOST,
-                    "fingerprint": "random"
-                },
-                "wsSettings": {
-                    "path": "/?ed=2560",
-                    "headers": {"Host": WORKER_HOST}
-                }
+                "tlsSettings": {"serverName": WORKER_HOST, "fingerprint": "random"},
+                "wsSettings": {"path": "/?ed=2560", "headers": {"Host": WORKER_HOST}}
             }
         }]
     }
-
     with open("config.json", "w") as f:
         json.dump(config, f, indent=2)
     print(f"✅ کانفیگ با لاگینگ ساخته شد (پورت {VLESS_PORT})")
