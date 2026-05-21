@@ -1,96 +1,109 @@
 import subprocess
 import time
 import os
-import requests
+import json
 import threading
 
-# تنظیمات
-VLESS_LINK = "vless://4ba5ee7f-f9e3-4226-aa59-a84b569297ab@wispy-wind-f455.arvin341az.workers.dev:443?encryption=none&security=tls&sni=wispy-wind-f455.arvin341az.workers.dev&fp=random&type=ws&host=wispy-wind-f455.arvin341az.workers.dev&path=%2F%3Fed%3D2560#CF-Worker-VLESS"
-
-XRAY_PORT = 1080  # پورت SOCKS5 محلی
-XRAY_CONFIG = "config.json"
+# ================== تنظیمات ==================
+UUID = "4ba5ee7f-f9e3-4226-aa59-a84b569297ab"
+WORKER_HOST = "wispy-wind-f455.arvin341az.workers.dev"
+VLESS_PORT = 2083          # پورت VLESS inbound در Codespace
+SOCKS_PORT = 1080
 
 def download_xray():
-    """دانلود آخرین نسخه Xray برای لینوکس amd64"""
-    url = "https://github.com/XTLS/Xray-core/releases/latest/download/Xray-linux-64.zip"
     if not os.path.exists("xray"):
-        print("در حال دانلود Xray...")
-        os.system(f"wget -q {url} -O xray.zip")
-        os.system("unzip -o xray.zip && chmod +x xray")
-        print("Xray دانلود شد.")
+        print("📥 Now DAwnloading X2ay")
+        os.system("wget -q https://github.com/XTLS/Xray-core/releases/latest/download/Xray-linux-64.zip -O xray.zip")
+        os.system("unzip -o xray.zip && chmod +x xray && rm xray.zip")
+        print("✅ Dawnload X2ray.")
 
-def generate_xray_config():
+def generate_config():
     config = {
-        "inbounds": [{
-            "port": XRAY_PORT,
-            "listen": "0.0.0.0",
-            "protocol": "socks",
-            "settings": {"udp": True}
-        }],
+        "inbounds": [
+            # VLESS Inbound (برای اتصال مستقیم کلاینت تو)
+            {
+                "port": VLESS_PORT,
+                "listen": "0.0.0.0",
+                "protocol": "vless",
+                "settings": {
+                    "clients": [{"id": UUID, "flow": ""}]
+                },
+                "streamSettings": {
+                    "network": "tcp"
+                }
+            },
+            # SOCKS5 (اختیاری)
+            {
+                "port": SOCKS_PORT,
+                "listen": "0.0.0.0",
+                "protocol": "socks",
+                "settings": {"udp": True}
+            }
+        ],
         "outbounds": [{
             "protocol": "vless",
             "settings": {
                 "vnext": [{
-                    "address": "wispy-wind-f455.arvin341az.workers.dev",
+                    "address": WORKER_HOST,
                     "port": 443,
-                    "users": [{
-                        "id": "4ba5ee7f-f9e3-4226-aa59-a84b569297ab",
-                        "encryption": "none",
-                        "flow": ""
-                    }]
+                    "users": [{"id": UUID, "encryption": "none"}]
                 }]
             },
             "streamSettings": {
                 "network": "ws",
                 "security": "tls",
                 "tlsSettings": {
-                    "serverName": "wispy-wind-f455.arvin341az.workers.dev",
+                    "serverName": WORKER_HOST,
                     "fingerprint": "random"
                 },
                 "wsSettings": {
                     "path": "/?ed=2560",
-                    "headers": {
-                        "Host": "wispy-wind-f455.arvin341az.workers.dev"
-                    }
+                    "headers": {"Host": WORKER_HOST}
                 }
             }
         }]
     }
-    
-    import json
-    with open(XRAY_CONFIG, "w") as f:
+
+    with open("config.json", "w") as f:
         json.dump(config, f, indent=2)
-    print(f"کانفیگ Xray با موفقیت ساخته شد → پورت SOCKS5: {XRAY_PORT}")
+    print(f"X2ray Config Generated For Connect To Cloudflare Vless (VLESS Port: {VLESS_PORT})")
 
 def run_xray():
     download_xray()
-    generate_xray_config()
+    generate_config()
     
-    print("Xray در حال اجرا... (برای خروج Ctrl+C بزن)")
+    print("🚀 Now Starting The X2ray")
     try:
-        subprocess.run(["./xray", "run", "-c", XRAY_CONFIG])
+        subprocess.run(["./xray", "run", "-c", "config.json"])
     except KeyboardInterrupt:
-        print("\nXray متوقف شد.")
+        print("🛑 Stoped X2ray")
+
+def generate_vless_link(codespace_url):
+    link = f"vless://{UUID}@{codespace_url}:{VLESS_PORT}?security=none&encryption=none&type=tcp#{codespace_url}-Via-CF"
+    print("\n" + "="*60)
+    print("✅ Ready The Config:")
+    print(link)
+    print("="*60)
+    print("Import The clint")
+    return link
 
 if __name__ == "__main__":
-    # اجرا در ترد جدا برای اینکه بتونی اسکریپت رو ادامه بدی
     threading.Thread(target=run_xray, daemon=True).start()
     
-    print(f"\n✅ پروکسی SOCKS5 آماده است: socks5://127.0.0.1:{XRAY_PORT}")
-    print("حالا می‌تونی از این پروکسی توی مرورگر، curl، requests و ... استفاده کنی.")
+    time.sleep(6)  # زمان برای آماده شدن Xray
     
-    # تست اتصال
-    time.sleep(5)
+    # تشخیص آدرس Codespace
     try:
-        proxies = {"http": f"socks5://127.0.0.1:{XRAY_PORT}", "https": f"socks5://127.0.0.1:{XRAY_PORT}"}
-        r = requests.get("https://api.ipify.org?format=json", proxies=proxies, timeout=10)
-        print("IP فعلی:", r.json())
+        codespace_url = os.getenv("CODESPACE_NAME") + ".app.github.dev"
+        generate_vless_link(codespace_url)
     except:
-        print("تست IP انجام نشد (ممکنه هنوز Xray آماده نشده باشه)")
+        print("\n⚠️  آدرس Codespace را دستی وارد کنید (مثلاً: abc123-2083.app.github.dev)")
+        codespace_url = input("آدرس Codespace: ")
+        generate_vless_link(codespace_url)
     
-    # نگه داشتن اسکریپت
+    # نگه داشتن برنامه
     try:
         while True:
-            time.sleep(60)
+            time.sleep(300)
     except KeyboardInterrupt:
         print("خداحافظ!")
